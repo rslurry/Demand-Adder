@@ -106,12 +106,29 @@ import osmnx as ox
 import networkx as nx
 
 from collections import defaultdict
-from sklearn.cluster import AgglomerativeClustering
-
-FOODIR = os.path.dirname(__file__)
-from lib import utils as U
 
 np.random.seed(42)
+
+###############################################################################
+
+def haversine(lon1, lat1, lon2, lat2):
+    """
+    Calculate the great circle distance in kilometers between two points 
+    on the earth (specified in decimal degrees)
+    From https://stackoverflow.com/a/4913653 w/ slight modifications
+    """
+    # convert decimal degrees to radians 
+    lon1, lat1 = np.radians([lon1, lat1])
+    lon2 = np.radians(lon2)
+    lat2 = np.radians(lat2)
+
+    # haversine formula 
+    dlon = lon2 - lon1 
+    dlat = lat2 - lat1 
+    a = np.sin(dlat/2)**2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon/2)**2
+    c = 2 * np.asin(np.sqrt(a)) 
+    r = 6371000 # Radius of earth in meters. Use 3956 for miles. Determines return value units.
+    return c * r
 
 ###############################################################################
 
@@ -341,7 +358,7 @@ if __name__ == "__main__":
         # Required points - Find nearest points to these coords
         ilocs_air_req = np.zeros(len(airport_required_locs[iair]), dtype=int)
         for i in range(len(airport_required_locs[iair])):
-            ilocs_air_req[i] = U.haversine(airport_required_locs[iair][i][0], airport_required_locs[iair][i][1], 
+            ilocs_air_req[i] = haversine(airport_required_locs[iair][i][0], airport_required_locs[iair][i][1], 
                                            point_locs[:,0], point_locs[:,1]).argmin()
 
         # And determine remaining number of points that will get pops
@@ -399,7 +416,7 @@ if __name__ == "__main__":
         if univ_merge_within[iuniv]:
             # Merge nearby points into this one
             point_locs = np.array([p['location'] for p in demand['points']])
-            dists = U.haversine(point['location'][0], point['location'][1], 
+            dists = haversine(point['location'][0], point['location'][1], 
                                 point_locs[:,0], point_locs[:,1])
             iloc_merge = np.arange(len(demand['points']), dtype=int)[dists <= univ_merge_within[iuniv]][::-1] # largest to smallest
             pops_by_id = {p["id"]: p for p in demand["pops"]}
@@ -419,7 +436,7 @@ if __name__ == "__main__":
         iloc_airport = [p['id'][:4] == "AIR_" for p in demand['points']]
         size_of_points = np.array([p['jobs'] for p in demand['points']])
         size_of_points[iloc_airport] = 0 # Don't consider the airport
-        dist_of_points = U.haversine(point['location'][0], point['location'][1], 
+        dist_of_points = haversine(point['location'][0], point['location'][1], 
                                      point_locs[:,0], point_locs[:,1])
         weight_of_points = size_of_points / dist_of_points**2 # Prefer places near campus
         ilocs = np.random.choice(weight_of_points.size, 
@@ -443,7 +460,7 @@ if __name__ == "__main__":
         # Off-campus students
         size_of_points = np.array([p['residents'] for p in demand['points']])
         size_of_points[iloc_airport] = 0 # Don't consider the airport
-        dist_of_points = U.haversine(point['location'][0], point['location'][1], 
+        dist_of_points = haversine(point['location'][0], point['location'][1], 
                                      point_locs[:,0], point_locs[:,1])
         weight_of_points = size_of_points / dist_of_points
         ilocs = np.random.choice(weight_of_points.size, 
@@ -488,7 +505,7 @@ if __name__ == "__main__":
             # Required points - Find nearest points to these coords
             ilocs_ent_req = np.zeros(len(ent_req_residences[ient]), dtype=int)
             for i in range(len(ent_req_residences[ient])):
-                ilocs_ent_req[i] = U.haversine(ent_req_residences[ient][i][0], ent_req_residences[ient][i][1], 
+                ilocs_ent_req[i] = haversine(ent_req_residences[ient][i][0], ent_req_residences[ient][i][1], 
                                                point_locs[:,0], point_locs[:,1]).argmin()
 
             # And determine remaining number of points that will get pops
@@ -499,7 +516,7 @@ if __name__ == "__main__":
             iloc_airport = [p['id'][:4] == "AIR_" for p in demand['points']]
             size_of_points[iloc_airport ] = 0 # Don't consider these points
             size_of_points[ilocs_ent_req] = 0 
-            dist_of_points = U.haversine(point['location'][0], point['location'][1], 
+            dist_of_points = haversine(point['location'][0], point['location'][1], 
                                          point_locs[:,0], point_locs[:,1])
             weight_of_points = size_of_points / dist_of_points
             
@@ -556,7 +573,7 @@ if __name__ == "__main__":
             if base_merge_within[ibase]:
                 # Merge nearby points into this one
                 point_locs = np.array([p['location'] for p in demand['points']])
-                dists = U.haversine(point['location'][0], point['location'][1], 
+                dists = haversine(point['location'][0], point['location'][1], 
                                     point_locs[:,0], point_locs[:,1])
                 iloc_merge = np.arange(len(demand['points']), dtype=int)[dists <= base_merge_within[ibase]][::-1] # largest to smallest
                 pops_by_id = {p["id"]: p for p in demand["pops"]}
@@ -576,7 +593,7 @@ if __name__ == "__main__":
             iloc_airport = [p['id'][:4] == "AIR_" for p in demand['points']]
             size_of_points = np.array([p['jobs'] for p in demand['points']])
             size_of_points[iloc_airport] = 0 # Don't consider the airport
-            dist_of_points = U.haversine(point['location'][0], point['location'][1], 
+            dist_of_points = haversine(point['location'][0], point['location'][1], 
                                          point_locs[:,0], point_locs[:,1])
             weight_of_points = size_of_points / dist_of_points**2 # Prefer places near base
             ilocs = np.random.choice(weight_of_points.size, 
@@ -600,7 +617,7 @@ if __name__ == "__main__":
             # Off-base pops
             size_of_points = np.array([p['residents'] for p in demand['points']])
             size_of_points[iloc_airport] = 0 # Don't consider the airport
-            dist_of_points = U.haversine(point['location'][0], point['location'][1], 
+            dist_of_points = haversine(point['location'][0], point['location'][1], 
                                          point_locs[:,0], point_locs[:,1])
             weight_of_points = size_of_points / dist_of_points
             ilocs = np.random.choice(weight_of_points.size, 
