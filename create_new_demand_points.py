@@ -451,6 +451,7 @@ if __name__ == "__main__":
             ilocs = np.random.choice(weight_of_points.size, 
                                      size=int((oncampus * univ_perc_travel[0])//univ_pop_size[iuniv]), 
                                      p=weight_of_points/weight_of_points.sum())
+            i = 0
             for i, iloc in enumerate(ilocs):
                 pop = {
                         "id" : "UNI_" + universities[iuniv] + "_" + str(i+1),
@@ -608,6 +609,7 @@ if __name__ == "__main__":
             ilocs = np.random.choice(weight_of_points.size, 
                                      size=int((onbase * base_perc_travel[0])//base_pop_size[ibase]), 
                                      p=weight_of_points/weight_of_points.sum())
+            i = 0
             for i, iloc in enumerate(ilocs):
                 pop = {
                         "id" :bases[ibase] + "_" + str(i+1),
