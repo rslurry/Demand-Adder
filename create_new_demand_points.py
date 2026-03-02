@@ -405,7 +405,7 @@ if __name__ == "__main__":
                 for i, iloc in enumerate(locs_arr):
                     counter += 1
                     pop = {
-                            "id" : "AIR_"+str(counter),
+                            "id" : "AIR_"+airport[iair]+'_'+str(counter),
                             "residenceId" : demand['points'][iloc]["id"],
                             "jobId" : point["id"],
                             "size" : psize,
@@ -581,7 +581,7 @@ if __name__ == "__main__":
                 for i, iloc in enumerate(locs_arr):
                     counter += 1
                     pop = {
-                            "id" : "ENT_"+str(counter),
+                            "id" : "ENT_"+entertainment[ient]+'_'+str(counter),
                             "residenceId" : demand['points'][iloc]["id"],
                             "jobId" : point["id"],
                             "size" : psize,
