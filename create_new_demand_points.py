@@ -530,7 +530,7 @@ if __name__ == "__main__":
             if ent_merge_within[iuniv]:
                 # Merge nearby points into this one
                 point_locs = np.array([p['location'] for p in demand['points']])
-                dists = U.haversine(point['location'][0], point['location'][1], 
+                dists = haversine(point['location'][0], point['location'][1], 
                                     point_locs[:,0], point_locs[:,1])
                 iloc_merge = np.arange(len(demand['points']), dtype=int)[dists <= ent_merge_within[iuniv]][::-1] # largest to smallest
                 pops_by_id = {p["id"]: p for p in demand["pops"]}
