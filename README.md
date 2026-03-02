@@ -334,6 +334,7 @@ If you're downloading a pre-compiled release, then it might look something like
     "OVERWRITE" : false,
     "MAXPOPSIZE" : 200,
     "CALCULATE_ROUTES" : true,
+    "bbox" : [-118.11632, 33.38649, -117.55529, 33.94748],
     
     "airport" : ["SNA", "FUL"],
     "airport_daily_passengers" : [30000, 600], 
@@ -342,12 +343,14 @@ If you're downloading a pre-compiled release, then it might look something like
     "air_pop_size_req" : [200, 100],
     "air_pop_size_remain" : [200, 100],
     
-    "universities" : ["UCI", "CUI", "WU", "SAC"],
-    "univ_loc" : [[-117.84274, 33.64599], [-117.80905, 33.65429], [-117.84799, 33.68552], [-117.88874, 33.75853]],
-    "univ_merge_within" : [0, 0, 0, 200],
-    "students" : [37000, 3500, 7200, 20000],
-    "perc_oncampus" : [0.48, 0.29, 0, 0],
-    "univ_pop_size" : [200, 75, 100, 200],
+    "universities" : ["UCI", "CUI", "WU", "SAC", "IVC", "CHAP", "VU", "CSUF", "FC"],
+    "univ_loc" : [[-117.84274, 33.64599], [-117.80905, 33.65429], [-117.84799, 33.68552],
+                  [-117.88874, 33.75853], [-117.77801, 33.67585], [-117.85172, 33.79305],
+                  [-117.90209, 33.66195], [-117.88525, 33.88126], [-117.91827, 33.87498]],
+    "univ_merge_within" : [0, 0, 0, 200, 0, 0, 0, 0, 0],
+    "students" : [37000, 3500, 7200, 20000, 16200, 9800, 2200, 43600, 21400],
+    "perc_oncampus" : [0.48, 0.29, 0, 0, 0, 0.5, 0.5, 0.05, 0],
+    "univ_pop_size" : [200, 75, 100, 200, 200, 200, 100, 200, 200],
     
     "entertainment": ["DL", "CA", "KBF", "HB", "LB", "NB", "DP", "CCHD", "CCMB", "CCRP", "CCPP", "IRP", "MSJC", "OCMA"],
     "ent_loc" : [[-117.91896, 33.81209], [-117.91918, 33.80762], [-118.00135, 33.84403],
