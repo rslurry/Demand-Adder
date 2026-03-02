@@ -23,6 +23,8 @@ The input JSON file must have the following fields defined:
     CALCULATE_ROUTES : bool, determines whether to calculate commuting routes.  
                              Recommended to set this to false when initially testing out boundaries and clustering.
                        Example: true
+    bbox : list of ints, the [min_lon, min_lat, max_lon, max_lat] boundary for the city.  Required to calculate routes.
+           Example: [-77.8216, 43.0089, -77.399, 43.3117],
     
     airport : list of strings, IATA codes for the local airport 
                                Note: The first listed airport is used here to uniquely identify a city.  
@@ -141,14 +143,19 @@ if __name__ == "__main__":
     # Defines for preparing the demand file
     MAXPOPSIZE = cfg['MAXPOPSIZE']
     CALCULATE_ROUTES = cfg['CALCULATE_ROUTES']
+    if CALCULATE_ROUTES:
+        bbox = cfg['bbox']
+    
     try:
         HUMAN_READABLE = cfg['HUMAN_READABLE']
     except:
         HUMAN_READABLE = False
+    
     try:
         MAX_WORKERS = cfg['MAX_WORKERS']
     except:
         MAX_WORKERS = None
+    
     try:
         OVERWRITE = cfg['OVERWRITE']
     except:
@@ -158,6 +165,8 @@ if __name__ == "__main__":
     output_demand_file = cfg['output_demand_file']
     if input_demand_file == output_demand_file and not OVERWRITE:
         raise ValueError("Same input_demand_file and output_demand_file specified, but OVERWRITE is not set to true.")
+
+    
 
     # Airport data
     try:
