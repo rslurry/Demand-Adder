@@ -526,6 +526,25 @@ if __name__ == "__main__":
                 "residents": 0,
                 "popIds": []
             }
+
+            if ent_merge_within[iuniv]:
+                # Merge nearby points into this one
+                point_locs = np.array([p['location'] for p in demand['points']])
+                dists = U.haversine(point['location'][0], point['location'][1], 
+                                    point_locs[:,0], point_locs[:,1])
+                iloc_merge = np.arange(len(demand['points']), dtype=int)[dists <= ent_merge_within[iuniv]][::-1] # largest to smallest
+                pops_by_id = {p["id"]: p for p in demand["pops"]}
+                for iloc in iloc_merge:
+                    point['jobs'] += demand['points'][iloc]['jobs']
+                    point['residents'] += demand['points'][iloc]['residents']
+                    point['popIds'] += demand['points'][iloc]['popIds']
+                    for popid in demand['points'][iloc]['popIds']:
+                        if pops_by_id[popid]['residenceId'] == demand['points'][iloc]['id']:
+                            pops_by_id[popid]['residenceId'] = point['id']
+                        if pops_by_id[popid]['jobId'] == demand['points'][iloc]['id']:
+                            pops_by_id[popid]['jobId'] = point['id']
+                    del demand['points'][iloc]
+            
             point_locs = np.array([p['location'] for p in demand['points']])
 
             # Calculate where the pops will "live"
