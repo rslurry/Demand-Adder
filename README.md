@@ -95,6 +95,13 @@ If you're downloading a pre-compiled release, then it might look something like
     <td>Whether to calculate commuting routes<br><b>Note:</b> This can take a long time. Set to false while testing to save time until you're ready to make the final version.</td>
     <td><code>true</code></td>
   </tr>
+
+  <tr>
+    <td>bbox</td>
+    <td>list of ints</td>
+    <td>[min_lon, min_lat, max_lon, max_lat] boundary for the city.<br>Required to calculate routes.</td>
+    <td><code>[-77.8216, 43.0089, -77.399, 43.3117]</code></td>
+  </tr>
 </table>
 
 ### Airport‑related Parameters
