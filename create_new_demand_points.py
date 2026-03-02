@@ -70,6 +70,7 @@ The input JSON file must have the following fields defined:
 
     entertainment : list of strings, short identifiers for each entertainment location
     ent_loc : list of list of floats, coordinates in [lon, lat] for each entertainment location 
+    ent_merge_within : list of ints, distance in meters to merge any nearby demand points into the new entertainment demand point
     ent_req_residences : list of list of list of floats, like `airport_required_locs` but for entertainment locations
     ent_size : list of ints, number of daily visitors to each entertainment location
     ent_pop_size : list of ints, size of each pop created for each entertainment location
@@ -276,6 +277,13 @@ if __name__ == "__main__":
             if not len(ent_req_residences):
                 ent_req_residences = [[] for i in range(len(entertainment))]
             assert len(ent_req_residences) == len(entertainment), str(len(entertainment))+" entertainment locations specified, but "+str(len(ent_req_residences))+" groups of required entertainment residences were provided."
+
+        try:
+            ent_merge_within = cfg['ent_merge_within']
+        except:
+            print("ent_merge_within not specified/understood.  No bubbles will be merged around the entertainment points.")
+            ent_merge_within = [0 for i in range(len(entertainment))]
+        assert len(entertainment) == len(ent_merge_within), str(len(entertainment))+" entertainment points provided, but "+str(len(ent_merge_within))+" merge distances provided.  There must be one merge distance value provided per entertainment points specified."
         
         ent_size = cfg['ent_size']
         assert len(ent_size) == len(entertainment), str(len(entertainment))+" entertainment locations specified, but "+str(len(ent_size))+"entertainment demand sizes were provided."
