@@ -84,6 +84,9 @@ jobs:
             macos-15-intel)
               echo "OS_SUFFIX=macos_intel_x86-64" >> $GITHUB_ENV
               ;;
+            windows-latest)
+              echo "OS_SUFFIX=windows_x86-64" >> $GITHUB_ENV
+              ;;
             *)
               # fallback to the raw matrix value
               echo "OS_SUFFIX=${{ matrix.os }}" >> $GITHUB_ENV
