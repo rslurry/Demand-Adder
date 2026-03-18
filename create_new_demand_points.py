@@ -25,8 +25,25 @@ The input JSON file must have the following fields defined:
     CALCULATE_ROUTES : bool, determines whether to calculate commuting routes.  
                              Recommended to set this to false when initially testing out boundaries and clustering.
                        Example: true
+    ROUTING_METHOD : str, determines the method to use when calculating routes between home and job nodes.
+                          Options: osmnx, osrm
+                          Note: osrm requires a local OSRM server to be set up and running for the specified `bbox`.
+                          Default: osmnx
     bbox : list of ints, the [min_lon, min_lat, max_lon, max_lat] boundary for the city.  Required to calculate routes.
            Example: [-77.8216, 43.0089, -77.399, 43.3117],
+
+    point_locs_to_move : list of list of floats, coordinates in [lon, lat] of demand points that you want to move 
+                                                 for whatever reason.  
+                                                 Must correspond exactly to the order used in `moved_point_locs`.
+                                                 To not use this, set it to []
+                         Example: [[-77.69260, 43.29925], [-77.69280, 43.28780], [-77.74163, 43.30533], 
+                                   [-77.76616, 43.29830], [-77.75377, 43.29501], [-77.73190, 43.29221], 
+                                   [-77.71047, 43.28571], [-77.53833, 43.22158]]
+    moved_point_locs : list of list of floats, coordinates in [lon, lat] where you want to move the demand points to.
+                                               Must correspond exactly to the order used in `point_locs_to_move`.
+                       Example: [[-77.69253, 43.29669], [-77.69224, 43.28529], [-77.73431, 43.30351], 
+                                 [-77.76969, 43.29365], [-77.75209, 43.29262], [-77.72819, 43.29165], 
+                                 [-77.71078, 43.28141], [-77.54152, 43.22132]]
     
     airport : list of strings, IATA codes for the local airport 
                                Note: The first listed airport is used here to uniquely identify a city.  
@@ -143,41 +160,42 @@ def process_home_node(i, demand, G, points_by_id):
     home_node = ox.nearest_nodes(G, Y=home_point['location'][1], X=home_point['location'][0])
     pops = [p for p in demand['pops'] if p['residenceId'] == home_id]
     for p in pops:
-        job_id = p['jobId']
-        job_point = points_by_id[job_id]
-        try:
-            job_node = ox.nearest_nodes(G, Y=job_point['location'][1], X=job_point['location'][0])
-            path_nodes = nx.shortest_path(G, home_node, job_node, weight='travel_time')
-            distance_in_meters = nx.path_weight(G, path_nodes, weight='length')
-            travel_time_in_seconds = nx.path_weight(G, path_nodes, weight='travel_time')
-        except:
+        if p['drivingSeconds'] < 0 or p['drivingDistance'] < 0:
+            job_id = p['jobId']
+            job_point = points_by_id[job_id]
             try:
-                # Find closest road segment and project a point onto it
-                x, y = job_point['location']
-                u, v, key = ox.nearest_edges(G, Y=y, X=x)
-                edge_data = G[u][v][key]
-                line = edge_data['geometry']
-                point = Point(x, y)
-                nearest_point = line.interpolate(line.project(point))
-                new_node = max(G.nodes) + 1
-                G.add_node(new_node, x=nearest_point.x, y=nearest_point.y)
-                dist_to_u = Point(G.nodes[u]['x'], G.nodes[u]['y']).distance(nearest_point)
-                dist_to_v = Point(G.nodes[v]['x'], G.nodes[v]['y']).distance(nearest_point)
-                G.add_edge(new_node, u, length=dist_to_u)
-                G.add_edge(new_node, v, length=dist_to_v)
-                job_node = ox.nearest_nodes(G, X=x, Y=y)
+                job_node = ox.nearest_nodes(G, Y=job_point['location'][1], X=job_point['location'][0])
                 path_nodes = nx.shortest_path(G, home_node, job_node, weight='travel_time')
                 distance_in_meters = nx.path_weight(G, path_nodes, weight='length')
                 travel_time_in_seconds = nx.path_weight(G, path_nodes, weight='travel_time')
             except:
-                path_nodes = []
-                distance_in_meters = 0
-                travel_time_in_seconds = 0
-        # Add time penalties for intersections + traffic: 5 seconds per intersection
-        travel_time_in_seconds += len(path_nodes) * 5
-        
-        p['drivingSeconds']  = int(travel_time_in_seconds)
-        p['drivingDistance'] = int(np.ceil(distance_in_meters))
+                try:
+                    # Find closest road segment and project a point onto it
+                    x, y = job_point['location']
+                    u, v, key = ox.nearest_edges(G, Y=y, X=x)
+                    edge_data = G[u][v][key]
+                    line = edge_data['geometry']
+                    point = Point(x, y)
+                    nearest_point = line.interpolate(line.project(point))
+                    new_node = max(G.nodes) + 1
+                    G.add_node(new_node, x=nearest_point.x, y=nearest_point.y)
+                    dist_to_u = Point(G.nodes[u]['x'], G.nodes[u]['y']).distance(nearest_point)
+                    dist_to_v = Point(G.nodes[v]['x'], G.nodes[v]['y']).distance(nearest_point)
+                    G.add_edge(new_node, u, length=dist_to_u)
+                    G.add_edge(new_node, v, length=dist_to_v)
+                    job_node = ox.nearest_nodes(G, X=x, Y=y)
+                    path_nodes = nx.shortest_path(G, home_node, job_node, weight='travel_time')
+                    distance_in_meters = nx.path_weight(G, path_nodes, weight='length')
+                    travel_time_in_seconds = nx.path_weight(G, path_nodes, weight='travel_time')
+                except:
+                    path_nodes = []
+                    distance_in_meters = 0
+                    travel_time_in_seconds = 0
+            # Add time penalties for intersections + traffic: 5 seconds per intersection
+            travel_time_in_seconds += len(path_nodes) * 5
+            
+            p['drivingSeconds']  = round(travel_time_in_seconds)
+            p['drivingDistance'] = round(distance_in_meters)
     return pops
 
 
@@ -194,6 +212,22 @@ def main():
     CALCULATE_ROUTES = cfg['CALCULATE_ROUTES']
     if CALCULATE_ROUTES:
         bbox = cfg['bbox']
+        try:
+            ROUTING_METHOD = cfg['ROUTING_METHOD'].lower()
+        except:
+            ROUTING_METHOD = 'osmnx'
+        assert ROUTING_METHOD in ['osmnx', 'osrm'], "`ROUTING_METHOD` must be either 'osmnx' or 'osrm', but received "+ROUTING_METHOD
+        if ROUTING_METHOD == 'osrm':
+            # Make test request to be sure that the local server is running
+            response = requests.get("http://localhost:5000/nearest/v1/driving/"+\
+                                    str(np.round((bbox[0]+bbox[2])/2., 5))+","+\
+                                    str(np.round((bbox[1]+bbox[3])/2., 5)))
+            assert response.status_code == 200, "osrm routing requested, but unable to get a " + \
+                       "request from the local osrm server.  " + \
+                       "Are you sure it's running on port 5000 and covers the specified `bbox`?"
+            session = requests.Session()
+            session.headers.update({"Connection": "close"})
+        print("Using", ROUTING_METHOD, "to calculate routes", flush=True)
     
     try:
         HUMAN_READABLE = cfg['HUMAN_READABLE']
@@ -215,7 +249,16 @@ def main():
     if input_demand_file == output_demand_file and not OVERWRITE:
         raise ValueError("Same input_demand_file and output_demand_file specified, but OVERWRITE is not set to true.")
 
-    
+    # Points that are not in the spot you want
+    try:
+        point_locs_to_move = cfg['point_locs_to_move']
+    except:
+        point_locs_to_move = []
+    try:
+        moved_point_locs = cfg['moved_point_locs']
+    except:
+        moved_point_locs = []
+    assert len(point_locs_to_move) == len(moved_point_locs), "`point_locs_to_move` and `moved_point_locs` must have the same number of entries, but received "+str(len(point_locs_to_move))+" entries for `point_locs_to_move` and "+str(len(moved_point_locs))+" entries for `moved_point_locs`"
 
     # Airport data
     try:
@@ -410,10 +453,18 @@ def main():
 
     ###############################################################################
 
+    # Move the points that are over water or placed poorly
+    point_locs = np.array([p['location'] for p in demand['points']])
+    for i, loc in enumerate(point_locs_to_move):
+        iloc = haversine(loc[0], loc[1], 
+                            point_locs[:,0], point_locs[:,1]).argmin()
+        demand['points'][iloc]['location'] = moved_point_locs[i]
+
+    ###############################################################################
+
     if airport:
         print("Adding airport demand to simulate travelers")
         air_points = []
-        counter = 0
         for iair in range(len(airport)):
             print(" ", airport[iair])
     
@@ -443,6 +494,7 @@ def main():
             ilocs_air_remain = np.random.choice(size_of_points.size, size=ntarget_locs_air_remain, replace=False, p=size_of_points/size_of_points.sum())
     
             # Make them
+            counter = 0
             for it in range(2):
                 if not it:
                     psize = air_pop_size_req[iair]
@@ -507,24 +559,27 @@ def main():
             
             # On-campus students
             point_locs = np.array([p['location'] for p in demand['points']])
-            iloc_airport = [p['id'][:4] == "AIR_" for p in demand['points']]
+            iloc_air = [p['id'][:4] == "AIR_" for p in demand['points']]
             size_of_points = np.array([p['jobs'] for p in demand['points']])
-            size_of_points[iloc_airport] = 0 # Don't consider the airport
+            size_of_points[iloc_air] = 0 # Don't consider the airport
             dist_of_points = haversine(point['location'][0], point['location'][1], 
                                          point_locs[:,0], point_locs[:,1])
             weight_of_points = size_of_points / dist_of_points**2 # Prefer places near campus
+            # Focus pops within 40 km
+            weight_of_points[dist_of_points > 40000] = 0
             ilocs = np.random.choice(weight_of_points.size, 
                                      size=int((oncampus * univ_perc_travel[0])//univ_pop_size[iuniv]), 
                                      p=weight_of_points/weight_of_points.sum())
-            i = 0
+            counter=0
             for i, iloc in enumerate(ilocs):
+                counter+=1
                 pop = {
-                        "id" : "UNI_" + universities[iuniv] + "_" + str(i+1),
+                        "id" : "UNI_" + universities[iuniv] + "_" + str(counter),
                         "residenceId" : point["id"],
                         "jobId" : demand['points'][iloc]["id"],
                         "size" : int(univ_pop_size[iuniv]),
-                        "drivingSeconds"  : 1,
-                        "drivingDistance" : 1
+                        "drivingSeconds"  : -1,
+                        "drivingDistance" : -1
                 }
                 demand['pops'].append(pop)
                 demand['points'][iloc]['jobs'] += pop['size']
@@ -534,16 +589,19 @@ def main():
     
             # Off-campus students
             size_of_points = np.array([p['residents'] for p in demand['points']])
-            size_of_points[iloc_airport] = 0 # Don't consider the airport
+            size_of_points[iloc_air] = 0 # Don't consider the airport
             dist_of_points = haversine(point['location'][0], point['location'][1], 
                                          point_locs[:,0], point_locs[:,1])
-            weight_of_points = size_of_points / dist_of_points
+            weight_of_points = size_of_points / dist_of_points**2 # Prefer places near campus
+            # Focus pops within 40 km
+            weight_of_points[dist_of_points > 40000] = 0
             ilocs = np.random.choice(weight_of_points.size, 
                                      size=int((offcampus * univ_perc_travel[1])//univ_pop_size[iuniv]), 
                                      p=weight_of_points/weight_of_points.sum())
             for j, iloc in enumerate(ilocs):
+                counter+=1
                 pop = {
-                        "id" : "UNI_" + universities[iuniv] + "_" + str(i+j+2),
+                        "id" : "UNI_" + universities[iuniv] + "_" + str(counter),
                         "residenceId" : demand['points'][iloc]["id"],
                         "jobId" : point["id"],
                         "size" : int(univ_pop_size[iuniv]),
@@ -564,7 +622,6 @@ def main():
     if entertainment:
         print("Adding entertainment demand")
         ent_points = []
-        counter = 0
         for ient in range(len(entertainment)):
             print(" ", entertainment[ient], ent_size[ient])
             point = {
@@ -612,15 +669,16 @@ def main():
             size_of_points[ilocs_ent_req] = 0 
             dist_of_points = haversine(point['location'][0], point['location'][1], 
                                          point_locs[:,0], point_locs[:,1])
-            weight_of_points = size_of_points / dist_of_points
+            weight_of_points = size_of_points / dist_of_points**2
+            # Focus pops within 50 km
+            weight_of_points[dist_of_points > 50000] = 0
             
             ilocs_ent_remain = np.random.choice(size_of_points.size, size=ntarget_locs_ent_remain, 
                                                 replace=False, 
                                                 p=weight_of_points/weight_of_points.sum())
-                                                #p=(size_of_points + weight_of_points) / \
-                                                #  (size_of_points.sum() + weight_of_points.sum()))
 
             # Make them
+            counter = 0
             for it in range(2):
                 if not it:
                     locs_arr = ilocs_ent_req
@@ -657,7 +715,7 @@ def main():
             offbase = personnel[ibase] - onbase # "work" on campus, live elsewhere
             #print(bases[ibase])
             point = {
-                "id": bases[ibase],
+                "id": "MIL_" + bases[ibase],
                 "location": base_loc[ibase],
                 "jobs": 0,
                 "residents": 0,
@@ -684,19 +742,20 @@ def main():
             
             # On-base pops
             point_locs = np.array([p['location'] for p in demand['points']])
-            iloc_airport = [p['id'][:4] == "AIR_" for p in demand['points']]
+            iloc_air = [p['id'][:4] == "AIR_" for p in demand['points']]
             size_of_points = np.array([p['jobs'] for p in demand['points']])
-            size_of_points[iloc_airport] = 0 # Don't consider the airport
+            size_of_points[iloc_air] = 0 # Don't consider the airport
             dist_of_points = haversine(point['location'][0], point['location'][1], 
                                          point_locs[:,0], point_locs[:,1])
             weight_of_points = size_of_points / dist_of_points**2 # Prefer places near base
             ilocs = np.random.choice(weight_of_points.size, 
                                      size=int((onbase * base_perc_travel[0])//base_pop_size[ibase]), 
                                      p=weight_of_points/weight_of_points.sum())
-            i = 0
+            counter = 0
             for i, iloc in enumerate(ilocs):
+                counter+=1
                 pop = {
-                        "id" :bases[ibase] + "_" + str(i+1),
+                        "id" : "MIL_" + bases[ibase] + "_" + str(counter),
                         "residenceId" : point["id"],
                         "jobId" : demand['points'][iloc]["id"],
                         "size" : int(base_pop_size[ibase]),
@@ -711,7 +770,15 @@ def main():
 
             # Off-base pops
             size_of_points = np.array([p['residents'] for p in demand['points']])
-            size_of_points[iloc_airport] = 0 # Don't consider the airport
+            # Don't consider the airport, unis, entertainment, or other bases
+            iloc_uni = [p['id'][:4] == "UNI_" for p in demand['points']]
+            iloc_ent = [p['id'][:4] == "ENT_" for p in demand['points']]
+            iloc_mil = [p['id'][:4] == "MIL_" for p in demand['points']]
+            size_of_points[iloc_air] = 0
+            size_of_points[iloc_uni] = 0
+            size_of_points[iloc_ent] = 0
+            size_of_points[iloc_mil] = 0
+            
             dist_of_points = haversine(point['location'][0], point['location'][1], 
                                          point_locs[:,0], point_locs[:,1])
             weight_of_points = size_of_points / dist_of_points
@@ -719,8 +786,9 @@ def main():
                                      size=int((offbase * base_perc_travel[1])//base_pop_size[ibase]), 
                                      p=weight_of_points/weight_of_points.sum())
             for j, iloc in enumerate(ilocs):
+                counter+=1
                 pop = {
-                        "id" :  bases[ibase] + "_" + str(i+j+2),
+                        "id" :  bases[ibase] + "_" + str(counter),
                         "residenceId" : demand['points'][iloc]["id"],
                         "jobId" : point["id"],
                         "size" : int(base_pop_size[ibase]),
@@ -744,28 +812,86 @@ def main():
         points_by_id = {p["id"]: p for p in demand["points"]}
         pops_by_id   = {p["id"]: p for p in demand["pops"  ]}
         
-        # Set up OSM graph
-        print("Initializing OSM drive network graph")
-        G = ox.graph_from_bbox(bbox, network_type='drive')#, simplify=False)
-        G = ox.truncate.largest_component(G, strongly=True)
-        G = ox.add_edge_speeds(G)
-        G = ox.add_edge_travel_times(G)
-        
-        # Prepare arguments for parallel jobs
-        print("Calculating driving paths for each home node.  This may take a while.")
-        process_home_node_worker = functools.partial(process_home_node, 
-                                                     demand=demand, G=G, 
-                                                     points_by_id=points_by_id)
-        with Pool() as pool:
-            results = []
-            for r in tqdm(pool.imap(process_home_node_worker, range(len(demand['points']))), total=len(demand['points'])):
-                results.append(r)
-        
-        # Flatten results and update demand
-        for ret in results:
-            for pop in ret:
-                pops_by_id[pop['id']]['drivingSeconds']  = pop['drivingSeconds']
-                pops_by_id[pop['id']]['drivingDistance'] = pop['drivingDistance']
+        if ROUTING_METHOD == "osmnx":
+            # Set up OSM graph
+            print("Initializing OSM drive network graph")
+            G = ox.graph_from_bbox(bbox, network_type='drive')#, simplify=False)
+            G = ox.truncate.largest_component(G, strongly=True)
+            G = ox.add_edge_speeds(G)
+            G = ox.add_edge_travel_times(G)
+            
+            # Prepare arguments for parallel jobs
+            print("Calculating driving paths for each home node.  This may take a while.")
+            process_home_node_worker = functools.partial(process_home_node, 
+                                                         demand=demand, G=G, 
+                                                         points_by_id=points_by_id)
+            with Pool() as pool:
+                results = []
+                for r in tqdm(pool.imap(process_home_node_worker, range(len(demand['points']))), total=len(demand['points'])):
+                    results.append(r)
+            
+            # Flatten results and update demand
+            for ret in results:
+                for pop in ret:
+                    pops_by_id[pop['id']]['drivingSeconds']  = pop['drivingSeconds']
+                    pops_by_id[pop['id']]['drivingDistance'] = pop['drivingDistance']
+        elif ROUTING_METHOD == "osrm":
+            print("Calculating routes using local OSRM server.")
+            for ipoint in range(len(demand['points'])):
+                #if not ipoint%100:
+                print("  Point", ipoint+1, "/", len(demand['points']), end='\r')
+                home_point = demand['points'][ipoint]
+                home_id = home_point['id']
+                # Get nearest point
+                time.sleep(0.002)
+                response = requests.get("http://localhost:5000/nearest/v1/driving/"+\
+                                        str(home_point['location'][0])+","+\
+                                        str(home_point['location'][1]))
+                if response.status_code != 200:
+                    print("Invalid response for home point", home_id)
+                    print("Skipping.")
+                    continue
+                home_node_loc = response.json()['waypoints'][0]['location']
+                pops = [p for p in demand['pops'] if p['residenceId'] == home_id]
+                for p in pops:
+                    if p['drivingSeconds'] < 0 or p['drivingDistance'] < 0:
+                        job_id = p['jobId']
+                        job_point = points_by_id[job_id]
+                        # Get nearest point
+                        time.sleep(0.002)
+                        response = requests.get("http://localhost:5000/nearest/v1/driving/"+\
+                                                str(job_point['location'][0])+","+\
+                                                str(job_point['location'][1]))
+                        if response.status_code != 200:
+                            print("Invalid response for home point", home_id, "at job point", job_id)
+                            print("Skipping.")
+                            continue
+                        job_node_loc = response.json()['waypoints'][0]['location']
+                        # Get route
+                        time.sleep(0.002)
+                        response = requests.get("http://localhost:5000/route/v1/driving/"+\
+                                                str(home_node_loc[0])+","+\
+                                                str(home_node_loc[1])+";"+\
+                                                str(job_node_loc [0])+","+\
+                                                str(job_node_loc [1])+"?overview=false")
+                        if response.status_code != 200:
+                            print("Invalid response for route between home point", home_id, "and job point", job_id)
+                            print("Skipping.")
+                            continue
+                        resp = response.json()
+                        if resp["code"] == "NoRoute":
+                            print("No route between home point", home_id, "and job point", job_id, \
+                                  ".  Using straight-line distance.")
+                            dist = haversine(home_node_loc[0], home_node_loc[1], 
+                                             job_node_loc [0], job_node_loc [1])
+                            duration = dist / (30 * 1000 / 3600)
+                            p['drivingDistance'] = int(dist)
+                            p['drivingSeconds']  = int(duration)
+                        else:
+                            resp = response.json()
+                            p['drivingSeconds']  = int(resp['routes'][0]['duration'])
+                            p['drivingDistance'] = int(resp['routes'][0]['distance'])
+            print("")
 
     ###############################################################################
 
