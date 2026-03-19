@@ -440,8 +440,17 @@ def main():
     print("Modifying demand file", input_demand_file)
 
     print("Loading file")
-    with open(input_demand_file, 'r') as foo:
-        demand = json.load(foo)
+    if input_demand_file.endswith(".json.gz"):
+        with gzip.open(input_demand_file, mode="rt", encoding='utf-8') as foo:
+            demand = json.load(foo)
+    elif input_demand_file.endswith(".json"):
+        with open(input_demand_file, 'r') as foo:
+            demand = json.load(foo)
+    else:
+        raise ValueError("input_demand_file " + input_demand_file + "not recognized as a .json or .json.gz.")
+    
+    assert output_demand_file.endswith(".json.gz") or output_demand_file.endswith(".json"), \
+            "output_demand_file expected to be .json or .json.gz, but received "+output_demand_file
     
     points_by_id = {p["id"]: p for p in demand["points"]}
 
@@ -559,9 +568,11 @@ def main():
             
             # On-campus students
             point_locs = np.array([p['location'] for p in demand['points']])
-            iloc_air = [p['id'][:4] == "AIR_" for p in demand['points']]
+            iloc_air  = [p['id'][:4] == "AIR_" for p in demand['points']]
+            iloc_univ = [p['id'][:4] == "UNI_" for p in demand['points']]
             size_of_points = np.array([p['jobs'] for p in demand['points']])
-            size_of_points[iloc_air] = 0 # Don't consider the airport
+            size_of_points[iloc_air ] = 0 # Don't consider the airport
+            size_of_points[iloc_univ] = 0 # or universities - TODO: limit this to only points within the same univ
             dist_of_points = haversine(point['location'][0], point['location'][1], 
                                          point_locs[:,0], point_locs[:,1])
             weight_of_points = size_of_points / dist_of_points**2 # Prefer places near campus
@@ -922,11 +933,18 @@ def main():
     ###############################################################################
 
     # Save out demand file
-    with open(output_demand_file, "w") as json_file:
-        if HUMAN_READABLE:
-            json.dump(demand, json_file, indent=4)
-        else:
-            json.dump(demand, json_file, indent=None, separators=(',', ':'))
+    if output_demand_file.endswith(".json.gz"):
+        with gzip.open(output_demand_file, 'wt', encoding='utf-8') as json_file:
+            if HUMAN_READABLE:
+                json.dump(demand, json_file, indent=4)
+            else:
+                json.dump(demand, json_file, indent=None, separators=(',', ':'))
+    elif output_demand_file.endswith(".json"):
+        with open(output_demand_file, "w") as json_file:
+            if HUMAN_READABLE:
+                json.dump(demand, json_file, indent=4)
+            else:
+                json.dump(demand, json_file, indent=None, separators=(',', ':'))
     end = time.time()
     print("Time elapsed:", end-start, "s")
 
