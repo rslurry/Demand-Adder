@@ -97,10 +97,31 @@ If you're downloading a pre-compiled release, then it might look something like
   </tr>
 
   <tr>
+    <td>ROUTING_METHOD</td>
+    <td>(optional)<br>string</td>
+    <td>Method to use when calculating routes.<br><b>Options:</b> <code>osmnx</code>, <code>osrm</code><br><b>Note:</b> when using OSRM, you must have already set up a local OSRM server on port 5000 for the specified <code>bbox</code>.<br><b>Default:</b> <code>osmnx</code></td>
+    <td><code>osmnx</code></td>
+  </tr>
+
+  <tr>
     <td>bbox</td>
     <td>list of ints</td>
     <td>[min_lon, min_lat, max_lon, max_lat] boundary for the city.<br>Required to calculate routes.</td>
     <td><code>[-77.8216, 43.0089, -77.399, 43.3117]</code></td>
+  </tr>
+
+  <tr>
+    <td>point_locs_to_move</td>
+    <td>list of list of floats</td>
+    <td>Coordinates of demand points to move.</td>
+    <td><code>[[-77.69260, 43.29925], ...]</code></td>
+  </tr>
+
+  <tr>
+    <td>moved_point_locs</td>
+    <td>list of list of floats</td>
+    <td>New coordinates for moved demand points.</td>
+    <td><code>[[-77.69253, 43.29669], ...]</code></td>
   </tr>
 </table>
 
