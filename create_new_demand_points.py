@@ -204,8 +204,20 @@ def process_home_node(i, demand, G, points_by_id):
 def main():
     start = time.time()
     # Load the configuration file
-    with open(sys.argv[1], 'r') as fcfg:
-        cfg = json.load(fcfg)
+    cfg = None
+    try:
+        with open(sys.argv[1], 'r') as fcfg:
+            cfg = json.load(fcfg)
+    except:
+        while cfg is None:
+            user_input = input("Enter config file path: ").strip()
+            try:
+                with open(user_input, 'r') as fcfg:
+                    cfg = json.load(fcfg)
+            except FileNotFoundError as e:
+                print(e)
+            except json.JSONDecodeError:
+                print(f"File exists but contains invalid JSON: {user_input}")
 
     # Defines for preparing the demand file
     MAXPOPSIZE = cfg['MAXPOPSIZE']
